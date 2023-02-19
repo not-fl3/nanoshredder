@@ -5,7 +5,7 @@ use{
             TokenSpan
         },
         shader_ast::*,
-        shader_registry::ShaderRegistry
+        shader_registry::Shader
     }
 };
 
@@ -13,7 +13,7 @@ use{
 #[derive(Clone)]
 pub struct DepAnalyser<'a> {
     pub fn_def: &'a FnDef,
-    pub shader_registry: &'a ShaderRegistry,
+    pub shader_registry: &'a Shader,
     pub scopes: &'a Scopes,
 }
  
@@ -131,17 +131,6 @@ impl<'a> DepAnalyser<'a> {
                 }
                 //panic!("IMPL")
             }
-            Ty::DrawShader(shader_ptr)=>{
-                // ok we have a struct ptr
-                for arg_expr in arg_exprs {
-                    self.dep_analyse_expr(arg_expr);
-                }
-                let mut set = self.fn_def.callees.borrow_mut();
-                let draw_shader_decl = self.shader_registry.draw_shader_defs.get(shader_ptr).unwrap();
-                if let Some(fn_node_ptr) = self.shader_registry.draw_shader_method_ptr_from_ident(draw_shader_decl, method_ident){
-                    set.as_mut().unwrap().insert(fn_node_ptr);
-                }
-            }
             _ => panic!(),
         }
     }
@@ -183,9 +172,6 @@ impl<'a> DepAnalyser<'a> {
     fn dep_analyse_field_expr(&mut self, _span: TokenSpan, expr: &Expr, field_ident: Ident) {
         // so we have to store which 'shader props' we use
         match expr.ty.borrow().as_ref().unwrap(){
-            Ty::DrawShader(_)=>{
-                self.fn_def.draw_shader_refs.borrow_mut().as_mut().unwrap().insert(field_ident);
-            }
             _=>{
                   self.dep_analyse_expr(expr)
             }

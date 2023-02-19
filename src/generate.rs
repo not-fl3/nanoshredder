@@ -12,7 +12,7 @@ use{
             TokenSpan
         },
         shader_ast::*,
-        shader_registry::ShaderRegistry
+        shader_registry::Shader
     }
 };
 
@@ -77,7 +77,7 @@ pub struct BlockGenerator<'a> {
     pub fn_def: &'a FnDef,
     pub closure_site_info: Option<ClosureSiteInfo<'a >>,
     // pub env: &'a Env,
-    pub shader_registry: &'a ShaderRegistry,
+    pub shader_registry: &'a Shader,
     pub backend_writer: &'a dyn BackendWriter,
     pub const_table_offset: Option<usize>,
     //pub use_generated_cons_fns: bool,
@@ -411,7 +411,7 @@ pub struct ExprGenerator<'a> {
     pub fn_def: Option<&'a FnDef>,
     pub closure_site_info: Option<ClosureSiteInfo<'a >>,
     // pub env: &'a Env,
-    pub shader_registry: &'a ShaderRegistry,
+    pub shader_registry: &'a Shader,
     pub backend_writer: &'a dyn BackendWriter,
     pub const_table_offset: Option<usize>,
     //pub use_hidden_params2: bool,
@@ -665,9 +665,9 @@ impl<'a> ExprGenerator<'a> {
                 
                 self.generate_call_body(_span, fn_def, arg_exprs, closure_site_index);
             }
-            Ty::DrawShader(shader_ptr) => {
+            Ty::DrawShader => {
                 let fn_def = self.shader_registry.draw_shader_method_decl_from_ident(
-                    self.shader_registry.draw_shader_defs.get(shader_ptr).unwrap(),
+                    &self.shader_registry.draw_shader_def,
                     ident
                 ).unwrap();
                 
@@ -716,7 +716,7 @@ impl<'a> ExprGenerator<'a> {
             // and now the closed over values
             for sym in &closure_site.all_closed_over {
                 match sym.ty{
-                    Ty::DrawShader(_)=>{
+                    Ty::DrawShader => {
                         continue;
                     }
                     Ty::ClosureDef(_) | Ty::ClosureDecl=>panic!(),
@@ -751,7 +751,7 @@ impl<'a> ExprGenerator<'a> {
     
     fn generate_field_expr(&mut self, _span: TokenSpan, expr: &Expr, field_ident: Ident, ty:&Ty) {
         match expr.ty.borrow().as_ref() {
-            Some(Ty::DrawShader(_)) => {
+            Some(Ty::DrawShader) => {
                 self.backend_writer.generate_draw_shader_field_expr(&mut self.string, field_ident, ty);
                 //write!(self.string, "{}", &DisplayDsIdent(field_ident)).unwrap();
             }
@@ -846,7 +846,7 @@ impl<'a> ExprGenerator<'a> {
         }
         // alright now we have to pass in the closed over syms IN order
         for sym in closure_def.closed_over_syms.borrow().as_ref().unwrap() {
-            if let Ty::DrawShader(_) = sym.ty {
+            if let Ty::DrawShader = sym.ty {
                 continue;
             }
             write!(self.string, "{}", sep).unwrap();
@@ -927,7 +927,7 @@ impl<'a> ExprGenerator<'a> {
 
 pub struct FnDefGenerator<'a> {
     pub fn_def: &'a FnDef,
-    pub shader_registry: &'a ShaderRegistry,
+    pub shader_registry: &'a Shader,
     pub const_table_offset: Option<usize>,
     pub string: &'a mut String,
     pub backend_writer: &'a dyn BackendWriter
@@ -986,7 +986,7 @@ pub struct FnDefWithClosureArgsGenerator<'a> {
     pub closure_site_info: ClosureSiteInfo<'a>,
     pub fn_def: &'a FnDef,
     pub call_def: &'a FnDef,
-    pub shader_registry: &'a ShaderRegistry,
+    pub shader_registry: &'a Shader,
     pub const_table_offset: Option<usize>,
     pub string: &'a mut String,
     pub backend_writer: &'a dyn BackendWriter
@@ -996,7 +996,7 @@ pub struct FnDefWithClosureArgsGenerator<'a> {
 impl<'a> FnDefWithClosureArgsGenerator<'a> {
     pub fn generate_fn_def_with_all_closures(
         string:&mut String,
-        shader_registry: &ShaderRegistry,
+        shader_registry: &Shader,
         fn_def: &FnDef,
         call_def: &FnDef,
         backend_writer: &dyn BackendWriter,
@@ -1131,7 +1131,7 @@ pub struct ClosureDefGenerator<'a> {
     pub closure_site_arg: ClosureSiteArg,
     pub fn_def: &'a FnDef,
     pub call_def: &'a FnDef,
-    pub shader_registry: &'a ShaderRegistry,
+    pub shader_registry: &'a Shader,
     pub const_table_offset: Option<usize>,
     pub string: &'a mut String,
     pub backend_writer: &'a dyn BackendWriter

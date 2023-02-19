@@ -13,21 +13,20 @@ use {
         makepad_derive_live::*,
         makepad_live_tokenizer::{LiveId},
         LiveType,
-        live_ptr::LiveModuleId,
     }
 };
 
 #[derive(Clone)]
 pub struct LiveComponentInfo {
     pub name: LiveId,
-    pub module_id: LiveModuleId,
+    //pub module_id: LiveModuleId,
 }
 
 pub trait LiveComponentRegistry {
     fn type_id(&self) -> LiveType;
     fn get_component_info(&self, name: LiveId) -> Option<LiveComponentInfo>;
     fn component_type(&self) -> LiveId;
-    fn get_module_set(&self, set: &mut BTreeSet<LiveModuleId>);
+    //fn get_module_set(&self, set: &mut BTreeSet<LiveModuleId>);
 }
 
 #[derive(Default, Clone)]

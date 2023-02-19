@@ -3,13 +3,13 @@ use{
     crate::{
         makepad_live_compiler::*,
         shader_ast::*,
-        shader_registry::ShaderRegistry
+        shader_registry::Shader
     }
 };
 
 pub struct LhsChecker<'a> {
     pub scopes: &'a Scopes,
-    pub shader_registry: &'a ShaderRegistry,
+    pub shader_registry: &'a Shader,
 }
 
 impl<'a> LhsChecker<'a> {
@@ -140,8 +140,8 @@ impl<'a> LhsChecker<'a> {
     ) -> Result<(), LiveError> {
         // lets grab the ty from expr
         match expr.ty.borrow().as_ref().unwrap(){
-            Ty::DrawShader(shader_ptr)=>{
-                let field_decl = self.shader_registry.draw_shader_defs.get(shader_ptr).unwrap().find_field(field_ident) .unwrap();
+            Ty::DrawShader=>{
+                let field_decl = self.shader_registry.draw_shader_def.find_field(field_ident) .unwrap();
                 match &field_decl.kind{
                     DrawShaderFieldKind::Varying{..}=>{
                         Ok(())

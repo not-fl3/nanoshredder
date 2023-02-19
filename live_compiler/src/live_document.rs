@@ -16,7 +16,7 @@ pub struct LiveOriginal {
     pub tokens: Vec<TokenWithSpan>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct LiveExpanded {
     pub nodes: Vec<LiveNode >,
 }

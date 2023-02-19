@@ -1,7 +1,7 @@
-#![allow(dead_code)]
+#![allow(warnings)]
 
-pub mod shader_parser;
 pub mod shader_ast;
+pub mod shader_parser;
 pub mod shader_registry;
 //pub mod env;
 pub mod analyse;
@@ -9,11 +9,11 @@ pub mod builtin;
 pub mod const_eval;
 pub mod const_gather;
 pub mod dep_analyse;
-pub mod ty_check;
+pub mod generate;
 pub mod lhs_check;
 pub mod swizzle;
+pub mod ty_check;
 pub mod util;
-pub mod generate;
 
 //#[cfg(any(target_os = "linux", target_arch = "wasm32", test))]
 pub mod generate_glsl;
@@ -23,30 +23,20 @@ pub mod generate_metal;
 pub mod generate_hlsl;
 
 pub use makepad_live_compiler;
-pub use makepad_live_compiler::makepad_math;
-pub use makepad_live_compiler::makepad_live_tokenizer;
 pub use makepad_live_compiler::makepad_derive_live;
+pub use makepad_live_compiler::makepad_live_tokenizer;
+pub use makepad_live_compiler::makepad_math;
 pub use makepad_live_compiler::makepad_micro_serde;
-pub use makepad_live_tokenizer::makepad_live_id;
 pub use makepad_live_id::makepad_error_log;
+pub use makepad_live_tokenizer::makepad_live_id;
 
-pub use {
-    crate::{
-        shader_ast::{
-            ShaderTy,
-            DrawShaderPtr,
-            DrawShaderDef,
-            DrawShaderFieldKind,
-            DrawShaderFlags,
-            DrawShaderConstTable,
-            ValuePtr,
-        },
-        shader_registry::{
-            ShaderEnum,
-            ShaderRegistry,
-            DrawShaderQuery
-        }
-    }
+pub use crate::{
+    shader_ast::{
+        DrawShaderConstTable, DrawShaderDef, DrawShaderFieldKind, DrawShaderFlags, DrawShaderPtr,
+        ShaderTy, ValuePtr,
+    },
+    shader_registry::{DrawShaderQuery, ShaderEnum, Shader},
 };
 
 //pub use crate::shaderregistry::DrawShaderInput;
+

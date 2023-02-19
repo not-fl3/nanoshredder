@@ -11,7 +11,7 @@ use{
         },
         generate::*,
         shader_ast::*,
-        shader_registry::ShaderRegistry
+        shader_registry::Shader
     }
 };
 
@@ -19,7 +19,7 @@ pub fn index_to_char(index: usize) -> char {
     std::char::from_u32(index as u32 + 65).unwrap()
 }
 
-pub fn generate_shader(draw_shader_def: &DrawShaderDef, const_table:&DrawShaderConstTable, shader_registry: &ShaderRegistry) -> String {
+pub fn generate_shader(draw_shader_def: &DrawShaderDef, const_table:&DrawShaderConstTable, shader_registry: &Shader) -> String {
     let mut string = String::new();
     DrawShaderGenerator {
         draw_shader_def,
@@ -34,7 +34,7 @@ pub fn generate_shader(draw_shader_def: &DrawShaderDef, const_table:&DrawShaderC
 
 struct DrawShaderGenerator<'a> {
     draw_shader_def: &'a DrawShaderDef,
-    shader_registry: &'a ShaderRegistry,
+    shader_registry: &'a Shader,
     string: &'a mut String,
     backend_writer: &'a dyn BackendWriter,
     const_table: &'a DrawShaderConstTable
@@ -447,7 +447,7 @@ impl<'a> DrawShaderGenerator<'a> {
 }
 
 struct HlslBackendWriter<'a> {
-    pub shader_registry: &'a ShaderRegistry,
+    pub shader_registry: &'a Shader,
     pub draw_shader_def: &'a DrawShaderDef,
     pub const_table: &'a DrawShaderConstTable
 }
@@ -589,7 +589,8 @@ impl<'a> BackendWriter for HlslBackendWriter<'a> {
             Ty::Enum(_) => {
                 prefix(string, sep, is_inout);
                 write!(string, "int {}", ident).unwrap();
-            }            Ty::DrawShader(_) => {
+            }
+            Ty::DrawShader => {
                 return false
             }
             Ty::ClosureDef {..} => {

@@ -755,8 +755,8 @@ impl<T> LiveNodeSlice for T where T: AsRef<[LiveNode]> {
                     writeln!(f, "{}{} <Clone> {}", node.id, pt, clone).unwrap();
                     stack_depth += 1;
                 }, // subnodes including this one
-                LiveValue::Class {live_type, ..} => {
-                    writeln!(f, "{}{} <Class> {:?}", node.id, pt, live_type).unwrap();
+                LiveValue::Class { ..} => {
+                    writeln!(f, "{}{} <Class> {:?}", node.id, pt, "Class").unwrap();
                     stack_depth += 1;
                 }, // subnodes including this one
                 LiveValue::Close => {
@@ -778,9 +778,9 @@ impl<T> LiveNodeSlice for T where T: AsRef<[LiveNode]> {
                 } => {
                     writeln!(f, "<DSL> {} :token_start:{}, token_count:{} expand_index:{:?}", node.id, token_start, token_count, expand_index).unwrap();
                 },
-                LiveValue::Import(module_path) => {
-                    writeln!(f, "<Import> {}::{}", module_path, node.id).unwrap();
-                }
+                // LiveValue::Import(module_path) => {
+                //     writeln!(f, "<Import> {}::{}", module_path, node.id).unwrap();
+                // }
                 LiveValue::Registry(component_id) => {
                     writeln!(f, "<Registry> {}::{}", component_id, node.id).unwrap();
                 }

@@ -12,11 +12,11 @@ use {
         generate::*,
         swizzle::Swizzle,
         shader_ast::*,
-        shader_registry::ShaderRegistry
+        shader_registry::Shader
     }
 };
 
-pub fn generate_vertex_shader(draw_shader_def: &DrawShaderDef, const_table: &DrawShaderConstTable, shader_registry: &ShaderRegistry) -> String {
+pub fn generate_vertex_shader(draw_shader_def: &DrawShaderDef, const_table: &DrawShaderConstTable, shader_registry: &Shader) -> String {
     let mut string = String::new();
     DrawShaderGenerator {
         draw_shader_def,
@@ -29,7 +29,7 @@ pub fn generate_vertex_shader(draw_shader_def: &DrawShaderDef, const_table: &Dra
     string
 }
 
-pub fn generate_pixel_shader(draw_shader_def: &DrawShaderDef, const_table: &DrawShaderConstTable, shader_registry: &ShaderRegistry) -> String {
+pub fn generate_pixel_shader(draw_shader_def: &DrawShaderDef, const_table: &DrawShaderConstTable, shader_registry: &Shader) -> String {
     let mut string = String::new();
     DrawShaderGenerator {
         draw_shader_def,
@@ -44,7 +44,7 @@ pub fn generate_pixel_shader(draw_shader_def: &DrawShaderDef, const_table: &Draw
 
 struct DrawShaderGenerator<'a> {
     draw_shader_def: &'a DrawShaderDef,
-    shader_registry: &'a ShaderRegistry,
+    shader_registry: &'a Shader,
     string: &'a mut String,
     const_table: &'a DrawShaderConstTable,
     backend_writer: &'a dyn BackendWriter
@@ -764,7 +764,7 @@ impl<'a> VarUnpacker<'a> {
 }
 
 struct GlslBackendWriter<'a> {
-    pub shader_registry: &'a ShaderRegistry,
+    pub shader_registry: &'a Shader,
     const_table: &'a DrawShaderConstTable
 }
 
@@ -897,7 +897,7 @@ impl<'a> BackendWriter for GlslBackendWriter<'a> {
                 self.write_var_decl(string, sep, is_inout, is_packed, ident, elem_ty);
                 write!(string, "[{}]", len).unwrap();
             }
-            Ty::DrawShader(_) => {
+            Ty::DrawShader => {
                 // we should output nothing
                 return false
             }

@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+#![allow(warnings)]
 
 pub mod util;
 pub mod span;
@@ -37,12 +37,12 @@ pub use {
             LiveEval
         },
         live_registry::{
+            load_file,
             LiveEditEvent,
-            LiveRegistry,
             LiveDocNodes,
+            LiveFile
         },
         live_ptr::{
-            LiveModuleId,
             LivePtr,
             LiveRef,            
             LiveFileGeneration,
@@ -80,7 +80,8 @@ pub use {
         makepad_live_tokenizer::{LiveErrorOrigin, live_error_origin},
         live_error::{
             LiveError,
-            LiveFileError
+            LiveFileError,
+            LiveErrorSpan
         },
         live_document::{LiveOriginal, LiveExpanded}
     }

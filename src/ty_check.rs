@@ -12,15 +12,15 @@ use{
         lhs_check::LhsChecker,
         swizzle::Swizzle,
         util::CommaSep,
-        shader_registry::ShaderRegistry
+        shader_registry::Shader
     }
 };
 
 #[derive(Clone)]
 pub struct TyChecker<'a> {
     pub scopes: &'a Scopes,
-    pub live_registry: &'a LiveRegistry, 
-    pub shader_registry: &'a ShaderRegistry
+    pub file: &'a LiveFile, 
+    pub shader_registry: &'a Shader
 }
 
 impl<'a> TyChecker<'a> {
@@ -37,7 +37,7 @@ impl<'a> TyChecker<'a> {
             TyExprKind::Lit {ty_lit} => self.ty_check_lit_ty_expr(ty_expr.span, *ty_lit),
             TyExprKind::Struct(struct_ptr) => Ok(Ty::Struct(*struct_ptr)),
             TyExprKind::Enum(live_type) => Ok(Ty::Enum(*live_type)),
-            TyExprKind::DrawShader(shader_ptr) => Ok(Ty::DrawShader(*shader_ptr)),
+            TyExprKind::DrawShader => Ok(Ty::DrawShader),
             TyExprKind::ClosureDecl {return_ty_expr, params, return_ty} => {
                 // check the closure
                 let checked_return_ty = if let Some(return_ty) = return_ty_expr.as_ref().as_ref(){
@@ -494,10 +494,10 @@ impl<'a> TyChecker<'a> {
         
         let ty = self.ty_check_expr(&arg_exprs[0]) ?;
         match ty {
-            Ty::DrawShader(shader_ptr) => { // a shader method call
+            Ty::DrawShader => { // a shader method call
                 
                 if let Some(fn_decl) = self.shader_registry.draw_shader_method_decl_from_ident(
-                    self.shader_registry.draw_shader_defs.get(&shader_ptr).unwrap(),
+                    &self.shader_registry.draw_shader_def,
                     ident
                 ) {
 
@@ -599,7 +599,7 @@ impl<'a> TyChecker<'a> {
            Err(err)=> Err(LiveError {
                 origin: live_error_origin!(),
                 span:span.into(),
-                message: format!("function: `{}`: {}", self.shader_registry.fn_ident_from_ptr(self.live_registry, fn_ptr), err.message)
+                message: format!("function: `{}`: {}", self.shader_registry.fn_ident_from_ptr(self.file, fn_ptr), err.message)
             }),
             Ok(closure_args)=>{
                 if closure_args.len()>0{
@@ -608,7 +608,7 @@ impl<'a> TyChecker<'a> {
                         return Err(LiveError {
                             origin: live_error_origin!(),
                             span:span.into(),
-                            message: format!("Closures not supported here {}", self.shader_registry.fn_ident_from_ptr(self.live_registry, fn_ptr))
+                            message: format!("Closures not supported here {}", self.shader_registry.fn_ident_from_ptr(self.file, fn_ptr))
                         });
                     }
                     closure_site_index.unwrap().set(Some(ci.len()));
@@ -754,11 +754,11 @@ impl<'a> TyChecker<'a> {
                     message: format!("field `{}` is not defined on type `{:?}`", field_ident, struct_ptr),
                 }) ? .ty_expr .ty .borrow() .as_ref() .unwrap() .clone())
             },
-            Ty::DrawShader(shader_ptr) => {
-                Ok(self.shader_registry.draw_shader_defs.get(&shader_ptr).unwrap().find_field(field_ident) .ok_or(LiveError {
+            Ty::DrawShader => {
+                Ok(self.shader_registry.draw_shader_def.find_field(field_ident) .ok_or(LiveError {
                     origin: live_error_origin!(),
                     span:span.into(),
-                    message: format!("field `{}` is not defined on shader `{:?}`", field_ident, shader_ptr),
+                    message: format!("field `{}` is not defined on shader", field_ident),
                 }) ? .ty_expr .ty .borrow() .as_ref() .unwrap() .clone())
             }
             _ => Err(LiveError {

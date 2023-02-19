@@ -46,7 +46,7 @@ pub struct LiveError {
     pub message: String,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct LiveFileError {
     pub origin: LiveErrorOrigin,
     pub file: String,
@@ -73,10 +73,10 @@ impl fmt::Display for LiveFileError {
 
 impl LiveError{
     
-    pub fn into_live_file_error(self, file:&str)->LiveFileError{
+    pub fn into_live_file_error(self)->LiveFileError{
         LiveFileError {
             origin: self.origin.clone(),
-            file: file.to_string(),
+            file: "".to_string(),
             span: self.span.into_text_span().unwrap(),
             message: self.message,
         }

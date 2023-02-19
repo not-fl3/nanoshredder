@@ -9,7 +9,7 @@ use {
         makepad_live_compiler::*,
         makepad_live_compiler::makepad_live_tokenizer::Delim,
         shader_ast::*,
-        shader_registry::{ShaderRegistry, LiveNodeFindResult}
+        shader_registry::{Shader, LiveNodeFindResult}
     }
 };
 
@@ -24,8 +24,7 @@ pub struct ShaderParser<'a> {
     pub dsl_expand_index: usize,
     pub origin_file_id: LiveFileId,
     pub tokens_with_span: Cloned<Iter<'a, TokenWithSpan >>,
-    pub live_registry: &'a LiveRegistry,
-    pub shader_registry: &'a ShaderRegistry,
+    pub shader_file: &'a LiveFile,
     pub type_deps: &'a mut Vec<ShaderParserDep>,
     pub closure_defs: Vec<ClosureDef>,
     pub token_with_span: TokenWithSpan,
@@ -35,8 +34,7 @@ pub struct ShaderParser<'a> {
 
 impl<'a> ShaderParser<'a> {
     pub fn new(
-        live_registry: &'a LiveRegistry,
-        shader_registry: &'a ShaderRegistry,
+        shader_file: &'a LiveFile,
         tokens: &'a [TokenWithSpan],
         type_deps: &'a mut Vec<ShaderParserDep>,
         self_kind: Option<FnSelfKind>,
@@ -48,8 +46,7 @@ impl<'a> ShaderParser<'a> {
         let token_with_span = tokens_with_span.next().unwrap();
         ShaderParser {
             closure_defs: Vec::new(),
-            live_registry,
-            shader_registry,
+            shader_file,
             dsl_expand_index,
             origin_file_id,
             type_deps,
@@ -193,7 +190,7 @@ impl<'a> ShaderParser<'a> {
     
     fn begin_span(&self) -> SpanTracker {
         SpanTracker {
-            file_id: self.token_with_span.span.file_id,
+            file_id: LiveFileId(0),
             start: self.token_with_span.span.start,
             start_index: self.token_index
         }
@@ -522,8 +519,8 @@ impl<'a> ShaderParser<'a> {
                     
                     let ident_path = self.expect_ident_path() ?;
                     
-                    if let Some(ptr) = self.live_registry.find_scope_ptr_via_expand_index(self.origin_file_id, self.dsl_expand_index, ident_path.segs[0]) {
-                        match self.shader_registry.find_live_node_by_path(self.live_registry, ptr, &ident_path.segs[1..ident_path.len()]) {
+                    if let Some(ptr) = self.shader_file.find_scope_ptr_via_expand_index(self.dsl_expand_index, ident_path.segs[0]) {
+                        match Shader::find_live_node_by_path(&self.shader_file, ptr, &ident_path.segs[1..ident_path.len()]) {
                             LiveNodeFindResult::Error(err) => {
                                 return Err(err)
                             }
@@ -1073,8 +1070,8 @@ impl<'a> ShaderParser<'a> {
                                     return Err(span.error(self, live_error_origin!(), format!("Use of Self not allowed here").into()));
                                 }
                             }
-                            else if let Some(ptr) = self.live_registry.find_scope_ptr_via_expand_index(self.origin_file_id, self.dsl_expand_index, ident_path.segs[0]) {
-                                match self.shader_registry.find_live_node_by_path(self.live_registry, ptr, &ident_path.segs[1..ident_path.len()]) {
+                            else if let Some(ptr) = self.shader_file.find_scope_ptr_via_expand_index(self.dsl_expand_index, ident_path.segs[0]) {
+                                match Shader::find_live_node_by_path(self.shader_file, ptr, &ident_path.segs[1..ident_path.len()]) {
                                     LiveNodeFindResult::Error(err) => {
                                         return Err(err)
                                     }
@@ -1132,7 +1129,7 @@ impl<'a> ShaderParser<'a> {
                         }
                         LiveToken::Open(Delim::Paren) => {
                             let arg_exprs = self.expect_arg_exprs() ?;
-                            if ident_path.len() == 1 && self.shader_registry.builtins.get(&Ident(ident_path.segs[0])).is_some() {
+                            if ident_path.len() == 1 && false {// && self.shader_registry.builtins.get(&Ident(ident_path.segs[0])).is_some() {
                                 Ok(span.end(self, | span | Expr {
                                     span,
                                     ty: RefCell::new(None),
@@ -1145,8 +1142,8 @@ impl<'a> ShaderParser<'a> {
                                     },
                                 }))
                             }
-                            else if let Some(ptr) = self.live_registry.find_scope_ptr_via_expand_index(self.origin_file_id, self.dsl_expand_index, ident_path.segs[0]) {
-                                match self.shader_registry.find_live_node_by_path(self.live_registry, ptr, &ident_path.segs[1..ident_path.len()]) {
+                            else if let Some(ptr) = self.shader_file.find_scope_ptr_via_expand_index(self.dsl_expand_index, ident_path.segs[0]) {
+                                match Shader::find_live_node_by_path(self.shader_file, ptr, &ident_path.segs[1..ident_path.len()]) {
                                     LiveNodeFindResult::Error(err) => {
                                         return Err(err)
                                     }
@@ -1226,9 +1223,9 @@ impl<'a> ShaderParser<'a> {
                             
                             let mut var_resolve = VarResolve::NotFound;
                             
-                            if let Some(ptr) = self.live_registry.find_scope_ptr_via_expand_index(self.origin_file_id, self.dsl_expand_index, ident_path.segs[0]) {
+                            if let Some(ptr) = self.shader_file.find_scope_ptr_via_expand_index(self.dsl_expand_index, ident_path.segs[0]) {
                                 
-                                let find_result = self.shader_registry.find_live_node_by_path(self.live_registry, ptr, &ident_path.segs[1..ident_path.len()]);
+                                let find_result = Shader::find_live_node_by_path(self.shader_file, ptr, &ident_path.segs[1..ident_path.len()]);
                                 match find_result {
                                    LiveNodeFindResult::Error(err)=>{
                                         return Err(err)
@@ -1416,7 +1413,6 @@ impl SpanTracker {
         LiveError {
             origin,
             span: TextSpan {
-                file_id: self.file_id,
                 start: self.start,
                 end: parser.token_end(),
             }.into(),

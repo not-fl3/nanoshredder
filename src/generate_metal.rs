@@ -9,7 +9,7 @@ use {
         makepad_live_id::*,
         shader_ast::*,
         generate::*,
-        shader_registry::ShaderRegistry,
+        shader_registry::Shader,
     }
 };
 
@@ -18,7 +18,7 @@ pub struct MetalGeneratedShader{
     pub fields_as_uniform_blocks:BTreeMap<Ident, Vec<(usize, Ident) >>   
 }
 
-pub fn generate_shader(draw_shader_def: &DrawShaderDef, const_table:&DrawShaderConstTable, shader_registry: &ShaderRegistry) -> MetalGeneratedShader {
+pub fn generate_shader(draw_shader_def: &DrawShaderDef, const_table:&DrawShaderConstTable, shader_registry: &Shader) -> MetalGeneratedShader {
     let mut string = String::new();
     let fields_as_uniform_blocks = draw_shader_def.fields_as_uniform_blocks();
     DrawShaderGenerator {
@@ -38,7 +38,7 @@ pub fn generate_shader(draw_shader_def: &DrawShaderDef, const_table:&DrawShaderC
 
 struct DrawShaderGenerator<'a> {
     draw_shader_def: &'a DrawShaderDef,
-    shader_registry: &'a ShaderRegistry,
+    shader_registry: &'a Shader,
     string: &'a mut String,
     fields_as_uniform_blocks: &'a BTreeMap<Ident, Vec<(usize, Ident) >>,
     backend_writer: &'a dyn BackendWriter,
@@ -440,7 +440,7 @@ impl<'a> DrawShaderGenerator<'a> {
 }
 
 struct MetalBackendWriter<'a> {
-    pub shader_registry: &'a ShaderRegistry,
+    pub shader_registry: &'a Shader,
     pub draw_shader_def: &'a DrawShaderDef,
     pub const_table: &'a DrawShaderConstTable,
 }
@@ -601,7 +601,7 @@ impl<'a> BackendWriter for MetalBackendWriter<'a> {
                 prefix(string, sep, is_inout);
                 write!(string, "uint32_t {} {}", ref_prefix, ident).unwrap();
             }
-            Ty::DrawShader(_) => {
+            Ty::DrawShader => {
                 return false
             }
             Ty::ClosureDef {..} => {

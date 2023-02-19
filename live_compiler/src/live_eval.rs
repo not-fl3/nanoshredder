@@ -8,7 +8,7 @@ pub use {
         makepad_live_tokenizer::{LiveErrorOrigin, live_error_origin},
         live_error::{LiveError},
         live_node_vec::*,
-        live_registry::LiveRegistry,
+        live_registry::LiveFile,
         live_node::*
     }
 };
@@ -55,13 +55,13 @@ impl LiveError {
     }
 }
 
-pub fn live_eval(live_registry: &LiveRegistry, start: usize, index: &mut usize, nodes: &[LiveNode]) -> Result<LiveEval,LiveError> {
+pub fn live_eval(file: &LiveFile, start: usize, index: &mut usize, nodes: &[LiveNode]) -> Result<LiveEval,LiveError> {
     Ok(match &nodes[*index].value {
         LiveValue::Str(_) |
         LiveValue::FittedString(_) |
         LiveValue::InlineString(_) |
         LiveValue::DocumentString {..} => {
-            LiveEval::String(live_registry.live_node_as_string(&nodes[*index]).unwrap())
+            LiveEval::String(file.live_node_as_string(&nodes[*index]).unwrap())
         }
         LiveValue::Float(v) => {
             *index += 1;
@@ -106,7 +106,7 @@ pub fn live_eval(live_registry: &LiveRegistry, start: usize, index: &mut usize, 
                 return None
             }
             
-            fn value_to_live_value(live_registry: &LiveRegistry, index: usize, nodes: &[LiveNode]) -> Result<LiveEval, LiveError> {
+            fn value_to_live_value(file: &LiveFile, index: usize, nodes: &[LiveNode]) -> Result<LiveEval, LiveError> {
                 return Ok(match &nodes[index].value {
                     LiveValue::Float(val) => LiveEval::Float(*val),
                     LiveValue::Int(val) => LiveEval::Int(*val),
@@ -118,9 +118,9 @@ pub fn live_eval(live_registry: &LiveRegistry, start: usize, index: &mut usize, 
                     LiveValue::Str(_) |
                     LiveValue::FittedString(_) |
                     LiveValue::InlineString(_) |
-                    LiveValue::DocumentString {..} => LiveEval::String(live_registry.live_node_as_string(&nodes[index]).unwrap()),
+                    LiveValue::DocumentString {..} => LiveEval::String(file.live_node_as_string(&nodes[index]).unwrap()),
                     LiveValue::Expr {..} => { // expr depends on expr
-                        live_eval(live_registry, index, &mut (index + 1), nodes)?
+                        live_eval(file, index, &mut (index + 1), nodes)?
                     }
                     LiveValue::Array => { // got an animation track. select the last value
                         if let Some(index) = last_keyframe_value_from_array(index, nodes) {
@@ -145,16 +145,16 @@ pub fn live_eval(live_registry: &LiveRegistry, start: usize, index: &mut usize, 
             
             if let Some(index) = nodes.scope_up_by_name(start - 1, id.as_field()) {
                 // found ok now what. it depends on the type of the thing here
-                value_to_live_value(live_registry, index, nodes)?
+                value_to_live_value(file, index, nodes)?
             }
             else if let Some(token_id) = nodes[start].origin.token_id() { // lets find it on live registry via origin
                 
                 let origin_file_id = token_id.file_id().unwrap();
                 let expand_index = nodes[start].get_expr_expand_index().unwrap();
                 
-                if let Some(ptr) = live_registry.find_scope_ptr_via_expand_index(origin_file_id, expand_index as usize, *id) {
-                    let (nodes, index) = live_registry.ptr_to_nodes_index(ptr);
-                    value_to_live_value(live_registry, index, nodes)?
+                if let Some(ptr) = file.find_scope_ptr_via_expand_index(expand_index as usize, *id) {
+                    let (nodes, index) = file.ptr_to_nodes_index(ptr);
+                    value_to_live_value(file, index, nodes)?
                 }
                 else {
                     return Err(LiveError::eval_error_cant_find_target(live_error_origin!(), *index, nodes, *id))
@@ -166,7 +166,7 @@ pub fn live_eval(live_registry: &LiveRegistry, start: usize, index: &mut usize, 
         },
         LiveValue::ExprUnOp(op) => {
             *index += 1;
-            let a = live_eval(live_registry, start, index, nodes)?;
+            let a = live_eval(file, start, index, nodes)?;
             match op {
                 LiveUnOp::Not => match a {
                     LiveEval::Bool(va) => LiveEval::Bool(!va),
@@ -183,8 +183,8 @@ pub fn live_eval(live_registry: &LiveRegistry, start: usize, index: &mut usize, 
             *index += 1;
             match ident {
                 id!(blend) if *args == 2 => {
-                    let a = live_eval(live_registry, start, index, nodes)?;
-                    let b = live_eval(live_registry, start, index, nodes)?;
+                    let a = live_eval(file, start, index, nodes)?;
+                    let b = live_eval(file, start, index, nodes)?;
                     if let LiveEval::Vec4(va) = a {
                         if let LiveEval::Vec4(vb) = b {
                             // ok so how do we blend this eh.
@@ -204,8 +204,8 @@ pub fn live_eval(live_registry: &LiveRegistry, start: usize, index: &mut usize, 
         }
         LiveValue::ExprBinOp(op) => {
             *index += 1;
-            let a = live_eval(live_registry, start, index, nodes)?;
-            let b = live_eval(live_registry, start, index, nodes)?;
+            let a = live_eval(file, start, index, nodes)?;
+            let b = live_eval(file, start, index, nodes)?;
             match op {
                 LiveBinOp::Or => match a {
                     LiveEval::Bool(va) => match b {

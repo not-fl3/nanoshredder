@@ -23,7 +23,6 @@ impl From<TextPos> for Position {
 
 #[derive(Clone, Copy, Default, Eq, Ord, PartialOrd, PartialEq)]
 pub struct TextSpan {
-    pub file_id: LiveFileId,
     pub start: TextPos,
     pub end: TextPos
 }
@@ -42,13 +41,13 @@ impl Into<TokenSpan> for LiveTokenId{
 
 impl fmt::Display for TextSpan {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Span(start:{}, end:{}, file_id:{})", self.start, self.end, self.file_id.to_index())
+        write!(f, "Span(start:{}, end:{})", self.start, self.end)
     }
 }
 
 impl fmt::Debug for TextSpan {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Span(start:{}, end:{}, file_id:{})", self.start, self.end, self.file_id.to_index())
+        write!(f, "Span(start:{}, end:{})", self.start, self.end)
     }
 }
 

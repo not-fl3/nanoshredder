@@ -27,10 +27,7 @@ pub struct StructPtr(pub LivePtr);
 impl Deref for StructPtr {type Target = LivePtr; fn deref(&self) -> &Self::Target {&self.0}}
 impl DerefMut for StructPtr {fn deref_mut(&mut self) -> &mut Self::Target {&mut self.0}}
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
-pub struct DrawShaderPtr(pub LivePtr);
-impl Deref for DrawShaderPtr {type Target = LivePtr; fn deref(&self) -> &Self::Target {&self.0}}
-impl DerefMut for DrawShaderPtr {fn deref_mut(&mut self) -> &mut Self::Target {&mut self.0}}
+pub type DrawShaderPtr = LivePtr;
 
 //#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 //pub struct ConstPtr(pub LivePtr);
@@ -157,14 +154,14 @@ pub struct ConstDef {
 #[derive(Clone, Copy, Eq, Hash, PartialEq, Ord, PartialOrd, Debug)]
 pub enum FnSelfKind {
     Struct(StructPtr),
-    DrawShader(DrawShaderPtr)
+    DrawShader
 }
 
 impl FnSelfKind {
     pub fn to_ty_expr_kind(self) -> TyExprKind {
         match self {
-            FnSelfKind::DrawShader(shader_ptr) => {
-                TyExprKind::DrawShader(shader_ptr)
+            FnSelfKind::DrawShader => {
+                TyExprKind::DrawShader
             },
             FnSelfKind::Struct(struct_ptr) => {
                 TyExprKind::Struct(struct_ptr)
@@ -472,7 +469,7 @@ pub enum TyExprKind {
     },
     Struct(StructPtr),
     Enum(LiveType),
-    DrawShader(DrawShaderPtr),
+    DrawShader,
     Lit {
         ty_lit: TyLit,
     },
@@ -539,7 +536,7 @@ pub enum ShaderTy {
     Array {elem_ty: Rc<ShaderTy>, len: usize},
     Struct(StructPtr),
     Enum(LiveType),
-    DrawShader(DrawShaderPtr),
+    DrawShader,
     ClosureDef(ClosureDefIndex),
     ClosureDecl
 }
@@ -712,8 +709,7 @@ impl StructDef {
 }
 
 
-impl FnDef {
-    
+impl FnDef {    
     pub fn new(
         fn_ptr: FnPtr,
         span: TokenSpan,
@@ -992,7 +988,7 @@ impl Ty {
             Ty::Array {..} => None,
             Ty::Struct(_) => None,
             Ty::Enum(_) => None,
-            Ty::DrawShader(_) => None,
+            Ty::DrawShader => None,
             Ty::ClosureDecl => None,
             Ty::ClosureDef {..} => None
         }
@@ -1040,7 +1036,7 @@ impl Ty {
             Ty::Array {elem_ty, len} => elem_ty.slots() * len,
             Ty::Enum(_) => 1,
             Ty::Struct(_) => panic!(),
-            Ty::DrawShader(_) => panic!(),
+            Ty::DrawShader => panic!(),
             Ty::ClosureDecl => panic!(),
             Ty::ClosureDef {..} => panic!(),
         }
@@ -1077,8 +1073,8 @@ impl Ty {
                 Ty::Struct(struct_node_ptr) => {
                     TyExprKind::Struct(*struct_node_ptr)
                 }
-                Ty::DrawShader(draw_shader_node_ptr) => {
-                    TyExprKind::DrawShader(*draw_shader_node_ptr)
+                Ty::DrawShader => {
+                    TyExprKind::DrawShader
                 },
                 Ty::Enum(live_type) => {
                     TyExprKind::Enum(*live_type)
@@ -1101,11 +1097,11 @@ impl Ty {
         }
     }
     
-    pub fn from_live_node(live_registry: &LiveRegistry, index: usize, nodes: &[LiveNode]) -> Result<Self,
+    pub fn from_live_node(file: &LiveFile, index: usize, nodes: &[LiveNode]) -> Result<Self,
     LiveError> {
         Ok(match &nodes[index].value {
             LiveValue::Expr {..} => {
-                match live_eval(live_registry, index, &mut (index + 1), nodes) ? {
+                match live_eval(file, index, &mut (index + 1), nodes) ? {
                     LiveEval::Bool(_) => Self::Float,
                     LiveEval::Int(_) => Self::Int,
                     LiveEval::Float(_) => Self::Float,
@@ -1175,7 +1171,7 @@ impl fmt::Display for Ty {
             Ty::Texture2D => write!(f, "texture2D"),
             Ty::Array {elem_ty, len} => write!(f, "{}[{}]", elem_ty, len),
             Ty::Struct(struct_ptr) => write!(f, "Struct:{:?}", struct_ptr),
-            Ty::DrawShader(shader_ptr) => write!(f, "DrawShader:{:?}", shader_ptr),
+            Ty::DrawShader => write!(f, "DrawShader"),
             Ty::Enum(_) => write!(f, "Enum"),
             Ty::ClosureDecl => write!(f, "ClosureDecl"),
             Ty::ClosureDef {..} => write!(f, "ClosureDef"),
