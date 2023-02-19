@@ -8,7 +8,7 @@ pub use {
         makepad_live_tokenizer::{LiveErrorOrigin, live_error_origin},
         live_error::{LiveError},
         live_node_vec::*,
-        live_registry::LiveFile,
+        live_file::LiveFile,
         live_node::*
     }
 };

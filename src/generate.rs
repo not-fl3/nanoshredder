@@ -12,7 +12,7 @@ use{
             TokenSpan
         },
         shader_ast::*,
-        shader_registry::Shader
+        shader::Shader
     }
 };
 

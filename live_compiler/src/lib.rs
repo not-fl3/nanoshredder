@@ -8,18 +8,14 @@ pub mod live_parser;
 pub mod live_node;
 pub mod live_node_vec;
 pub mod live_document;
-pub mod live_registry; 
+pub mod live_file; 
 pub mod live_expander;
 pub mod live_ptr;
 pub mod live_eval;
-pub mod live_component;
 
 pub use makepad_math;
-pub use makepad_derive_live;
 pub use makepad_live_tokenizer;
-pub use makepad_live_tokenizer::makepad_micro_serde;
 pub use makepad_live_tokenizer::makepad_live_id;
-pub use makepad_live_id::makepad_error_log;
 
 pub use {
     makepad_live_tokenizer::{
@@ -28,18 +24,11 @@ pub use {
     },
     makepad_live_tokenizer::vec4_ext,
     crate::{
-        live_component::{
-            LiveComponentInfo,
-            LiveComponentRegistry
-        },
         live_eval::{
             live_eval,
             LiveEval
         },
-        live_registry::{
-            load_file,
-            LiveEditEvent,
-            LiveDocNodes,
+        live_file::{            
             LiveFile
         },
         live_ptr::{

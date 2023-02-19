@@ -1,11 +1,9 @@
 [package]
-name = "makepad-shader-compiler"
+name = "nanoshredder"
 version = "0.1.0"
-authors = ["Eddy Bruel <ejpbruel@gmail.com>"]
+authors = ["Eddy Bruel <ejpbruel@gmail.com>", "Fedor Logachev <not.fl3@gmail.com>"]
 edition = "2018"
 
 [dependencies]
 makepad-live-compiler = { path = "./live_compiler", version = "0.1" }
 
-[features]
-nightly = ["makepad-live-compiler/nightly"]

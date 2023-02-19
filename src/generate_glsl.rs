@@ -12,7 +12,7 @@ use {
         generate::*,
         swizzle::Swizzle,
         shader_ast::*,
-        shader_registry::Shader
+        shader::Shader
     }
 };
 

@@ -12,7 +12,7 @@ use{
         lhs_check::LhsChecker,
         swizzle::Swizzle,
         util::CommaSep,
-        shader_registry::Shader
+        shader::Shader
     }
 };
 

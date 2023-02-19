@@ -9,7 +9,7 @@ use {
             LiveError, LiveErrorOrigin, LiveFile, TokenSpan,
         },
         shader_ast::*,
-        shader_registry::Shader,
+        shader::Shader,
         ty_check::TyChecker,
     },
     std::{

@@ -71,7 +71,6 @@ impl fmt::Display for LiveFileGeneration {
 
 #[derive(Clone, Debug, Eq, Hash, Copy, Ord, PartialOrd, PartialEq)]
 pub struct LivePtr {
-    pub generation: LiveFileGeneration,
     pub index: u32,
 }
 
@@ -83,11 +82,11 @@ impl LivePtr{
     }
     
     pub fn with_index(&self, index:usize)->Self{
-        Self{index:index as u32, generation:self.generation}
+        Self{index:index as u32}
     }
 
-    pub fn from_index(index:usize, generation:LiveFileGeneration)->Self{
-        Self{index:index as u32, generation}
+    pub fn from_index(index:usize)->Self{
+        Self{index:index as u32}
     }
 }
 

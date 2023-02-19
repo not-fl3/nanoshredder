@@ -3,7 +3,7 @@ use{
     crate::{
         makepad_live_compiler::*,
         shader_ast::*,
-        shader_registry::Shader
+        shader::Shader
     }
 };
 

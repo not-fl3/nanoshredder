@@ -3,8 +3,7 @@ use crate::{
     live_error::LiveError,
     live_node::{LiveIdAsProp, LiveNode, LiveValue},
     live_node_vec::{LiveNodeSlice, LiveNodeVec},
-    live_ptr::{LiveFileGeneration, LiveFileId, LivePtr},
-    live_registry::LiveScopeTarget,
+    live_ptr::{LiveFileId, LivePtr},
     makepad_live_id::*,
     makepad_live_tokenizer::{live_error_origin, LiveErrorOrigin},
     LiveTypeInfo,
@@ -48,7 +47,6 @@ impl<'a> LiveExpander<'a> {
         &mut self,
         in_doc: &LiveOriginal,
         out_doc: &mut LiveExpanded,
-        generation: LiveFileGeneration,
     ) {
         out_doc.nodes.push(in_doc.nodes[0].clone());
         let mut current_parent = vec![(LiveId(0), 0usize)];
@@ -390,7 +388,6 @@ impl<'a> LiveExpander<'a> {
                     {
                         *class_parent = Some(LivePtr {
                             index: out_index as u32,
-                            generation,
                         });
                     }
 

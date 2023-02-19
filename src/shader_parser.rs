@@ -9,7 +9,7 @@ use {
         makepad_live_compiler::*,
         makepad_live_compiler::makepad_live_tokenizer::Delim,
         shader_ast::*,
-        shader_registry::{Shader, LiveNodeFindResult}
+        shader::{Shader, LiveNodeFindResult}
     }
 };
 

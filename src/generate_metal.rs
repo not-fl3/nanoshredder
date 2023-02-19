@@ -9,7 +9,7 @@ use {
         makepad_live_id::*,
         shader_ast::*,
         generate::*,
-        shader_registry::Shader,
+        shader::Shader,
     }
 };
 

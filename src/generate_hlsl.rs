@@ -11,7 +11,7 @@ use{
         },
         generate::*,
         shader_ast::*,
-        shader_registry::Shader
+        shader::Shader
     }
 };
 

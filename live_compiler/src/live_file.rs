@@ -1,7 +1,6 @@
 //use crate::id::Id;
 use {
     crate::{
-        live_component::LiveComponentRegistries,
         live_document::{LiveExpanded, LiveOriginal},
         live_error::{LiveError, LiveErrorSpan, LiveFileError},
         live_expander::LiveExpander,
@@ -10,7 +9,6 @@ use {
         live_parser::LiveParser,
         live_ptr::{LiveFileGeneration, LiveFileId, LivePtr},
         live_token::{LiveToken, LiveTokenId, TokenWithSpan},
-        makepad_error_log::*,
         makepad_live_id::*,
         makepad_live_tokenizer::{
             live_error_origin, Cursor, Delim, FullToken, LiveErrorOrigin, LiveId, State, TokenPos,
@@ -23,27 +21,67 @@ use {
 
 #[derive(Default)]
 pub struct LiveFile {
-    pub(crate) reexpand: bool,
-
-    //pub(crate) module_id: LiveModuleId,
-    pub(crate) start_pos: TextPos,
-    pub(crate) source: String,
-    //pub(crate) deps: BTreeSet<LiveModuleId>,
-    pub generation: LiveFileGeneration,
-
     pub original: LiveOriginal,
-    pub next_original: Option<LiveOriginal>,
     pub expanded: LiveExpanded,
-
-    pub live_type_infos: Vec<LiveTypeInfo>,
 }
 
 impl LiveFile {
-    pub fn ptr_to_doc_node(&self, live_ptr: LivePtr) -> (&LiveExpanded, &LiveNode) {
-        (
-            &self.expanded,
-            &self.expanded.resolve_ptr(live_ptr.index as usize),
-        )
+    pub fn load(source: &str) -> Result<LiveFile, LiveFileError> {
+        let start_pos = TextPos { line: 0, column: 0 };
+        let (tokens, strings) = match tokenize_from_str(&source, start_pos) {
+            Err(msg) => return Err(msg.into_live_file_error()), //panic!("Lex error {}", msg),
+            Ok(lex_result) => lex_result,
+        };
+
+        let mut parser = LiveParser::new(&tokens, &[]);
+
+        let mut original = match parser.parse_live_document() {
+            Err(msg) => return Err(msg.into_live_file_error()), //panic!("Parse error {}", msg.to_live_file_error(file, &source)),
+            Ok(ld) => ld,
+        };
+
+        original.strings = strings;
+        original.tokens = tokens;
+
+        for node in &mut original.nodes {
+            match &mut node.value {
+                // LiveValue::Import(module_id) => {
+                //     if module_id.0 == id!(crate) {
+                //         // patch up crate refs
+                //         module_id.0 = own_module_id.0
+                //     };
+                //     deps.insert(*module_id);
+                // } // import
+                // LiveValue::Registry(component_id) => {
+                //     let reg = self.components.0.borrow();
+                //     if let Some(entry) = reg
+                //         .values()
+                //         .find(|entry| entry.component_type() == *component_id)
+                //     {
+                //         entry.get_module_set(&mut deps);
+                //     }
+                // }
+                LiveValue::Class { .. } => {
+                    // hold up. this is always own_module_path
+                    // let infos = self.live_type_infos.get(&live_type).unwrap();
+                    // for sub_type in infos.fields.clone() {
+                    //     let sub_module_id = sub_type.live_type_info.module_id;
+                    //     if sub_module_id != own_module_id {
+                    //         deps.insert(sub_module_id);
+                    //     }
+                    // }
+                }
+                _ => {}
+            }
+        }
+
+        let mut live_file = LiveFile {
+            original,
+            expanded: LiveExpanded::new(),
+        };
+
+        live_file.expand_all_documents();
+        return Ok(live_file);
     }
 
     // this looks at the 'id' before the live token id
@@ -118,7 +156,6 @@ impl LiveFile {
         match self.find_scope_target_via_start(item, index, &self.expanded.nodes) {
             Some(LiveScopeTarget::LocalPtr(index)) => Some(LivePtr {
                 index: index as u32,
-                generation: self.generation,
             }),
             Some(LiveScopeTarget::LivePtr(ptr)) => Some(ptr),
             None => None,
@@ -127,23 +164,23 @@ impl LiveFile {
 
     pub fn expand_all_documents(&mut self) {
         let mut errors = vec![];
-        let mut out_doc = LiveExpanded::new();
-        std::mem::swap(&mut out_doc, &mut self.expanded);
-
-        out_doc.nodes.clear();
-
         let in_doc = &self.original;
 
         let mut live_document_expander = LiveExpander {
             errors: &mut errors,
         };
 
-        live_document_expander.expand(
-            in_doc,
-            &mut out_doc,
-            self.generation,
-        );
-        std::mem::swap(&mut out_doc, &mut self.expanded);
+        live_document_expander.expand(in_doc, &mut self.expanded);
+
+        if !errors.is_empty() {
+            panic!("{:#?}", errors);
+        }
+        // assert!(self.original.nodes.len() == self.expanded.nodes.len());
+        // for i in 0..self.original.nodes.len() {
+        //     println!("{:#?}", self.original.nodes[i]);
+        //     println!("{:#?}", self.expanded.nodes[i]);
+        //     println!("----------------");
+        // }
     }
 
     pub fn live_node_as_string(&self, node: &LiveNode) -> Option<String> {
@@ -155,7 +192,7 @@ impl LiveFile {
                 string_start,
                 string_count,
             } => {
-                let origin_doc = self.original();
+                let origin_doc = &self.original;
                 let mut out = String::new();
                 origin_doc.get_string(*string_start, *string_count, &mut out);
                 Some(out)
@@ -164,7 +201,7 @@ impl LiveFile {
                 string_start,
                 string_count,
             } => {
-                let origin_doc = self.original();
+                let origin_doc = &self.original;
                 let mut out = String::new();
                 origin_doc.get_string(*string_start, *string_count, &mut out);
                 Some(out)
@@ -173,19 +210,8 @@ impl LiveFile {
         }
     }
 
-    pub fn original(&self) -> &LiveOriginal {
-        &self.original
-    }
-
     pub fn ptr_to_nodes_index(&self, live_ptr: LivePtr) -> (&[LiveNode], usize) {
-        if self.generation != live_ptr.generation {
-            panic!();
-        }
         (&self.expanded.nodes, live_ptr.index as usize)
-    }
-
-    pub fn ptr_to_doc(&self) -> &LiveExpanded {
-        &self.expanded
     }
 
     pub fn ptr_to_node(&self, live_ptr: LivePtr) -> &LiveNode {
@@ -193,26 +219,10 @@ impl LiveFile {
     }
 }
 
-pub struct LiveDocNodes<'a> {
-    pub nodes: &'a [LiveNode],
-    pub file_id: LiveFileId,
-    pub index: usize,
-}
-
 #[derive(Copy, Clone, Debug)]
 pub enum LiveScopeTarget {
     LocalPtr(usize),
     LivePtr(LivePtr),
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum LiveEditEvent {
-    ReparseDocument,
-    Mutation {
-        tokens: Vec<LiveTokenId>,
-        apply: Vec<LiveNode>,
-        live_ptrs: Vec<LivePtr>,
-    },
 }
 
 pub fn tokenize_from_str(
@@ -296,72 +306,4 @@ pub fn tokenize_from_str(
         token: LiveToken::Eof,
     });
     Ok((tokens, strings))
-}
-
-pub fn load_file(
-    //own_module_id: LiveModuleId,
-    source: String,
-) -> Result<LiveFile, LiveFileError> {
-    let start_pos = TextPos { line: 0, column: 0 };
-    let (tokens, strings) = match tokenize_from_str(&source, start_pos) {
-        Err(msg) => return Err(msg.into_live_file_error()), //panic!("Lex error {}", msg),
-        Ok(lex_result) => lex_result,
-    };
-
-    let mut parser = LiveParser::new(&tokens, &[]);
-
-    let mut original = match parser.parse_live_document() {
-        Err(msg) => return Err(msg.into_live_file_error()), //panic!("Parse error {}", msg.to_live_file_error(file, &source)),
-        Ok(ld) => ld,
-    };
-
-    original.strings = strings;
-    original.tokens = tokens;
-
-    for node in &mut original.nodes {
-        match &mut node.value {
-            // LiveValue::Import(module_id) => {
-            //     if module_id.0 == id!(crate) {
-            //         // patch up crate refs
-            //         module_id.0 = own_module_id.0
-            //     };
-            //     deps.insert(*module_id);
-            // } // import
-            // LiveValue::Registry(component_id) => {
-            //     let reg = self.components.0.borrow();
-            //     if let Some(entry) = reg
-            //         .values()
-            //         .find(|entry| entry.component_type() == *component_id)
-            //     {
-            //         entry.get_module_set(&mut deps);
-            //     }
-            // }
-            LiveValue::Class { .. } => {
-                // hold up. this is always own_module_path
-                // let infos = self.live_type_infos.get(&live_type).unwrap();
-                // for sub_type in infos.fields.clone() {
-                //     let sub_module_id = sub_type.live_type_info.module_id;
-                //     if sub_module_id != own_module_id {
-                //         deps.insert(sub_module_id);
-                //     }
-                // }
-            }
-            _ => {}
-        }
-    }
-
-    let mut live_file = LiveFile {
-        reexpand: true,
-        //module_id: own_module_id,
-        start_pos,
-        source,
-        generation: LiveFileGeneration::default(),
-        live_type_infos: vec![],
-        original,
-        next_original: None,
-        expanded: LiveExpanded::new(),
-    };
-
-    live_file.expand_all_documents();
-    return Ok(live_file);
 }

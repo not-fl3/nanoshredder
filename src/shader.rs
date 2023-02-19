@@ -2,7 +2,6 @@ use {
     crate::{
         analyse::*,
         builtin::{generate_builtins, Builtin},
-        makepad_error_log::*,
         makepad_live_compiler::*,
         makepad_live_id::*,
         shader_ast::*,
@@ -15,20 +14,21 @@ use {
 };
 
 pub struct Shader {
-    pub all_fns: HashMap<FnPtr, FnDef>,
-    pub draw_shader_def: DrawShaderDef,
-    pub structs: HashMap<StructPtr, StructDef>,
-    pub builtins: HashMap<Ident, Builtin>,
-    pub enums: HashMap<LiveType, ShaderEnum>,
+    shader_file: LiveFile,
+    pub(crate) all_fns: HashMap<FnPtr, FnDef>,
+    pub(crate) draw_shader_def: DrawShaderDef,
+    pub(crate) structs: HashMap<StructPtr, StructDef>,
+    pub(crate) builtins: HashMap<Ident, Builtin>,
+    pub(crate) enums: HashMap<LiveType, ShaderEnum>,
 }
 
-pub struct ShaderEnum {
-    pub enum_name: LiveId,
-    pub variants: Vec<LiveId>,
+pub(crate) struct ShaderEnum {
+    pub(crate) enum_name: LiveId,
+    pub(crate) variants: Vec<LiveId>,
 }
 
 #[derive(Debug)]
-pub enum LiveNodeFindResult {
+pub(crate) enum LiveNodeFindResult {
     NotFound,
     Component(LivePtr),
     Struct(StructPtr),
@@ -38,18 +38,18 @@ pub enum LiveNodeFindResult {
     Error(LiveError),
 }
 
-pub enum DrawShaderQuery {
+pub(crate) enum DrawShaderQuery {
     DrawShader,
     Geometry,
 }
 
 impl Shader {
-    pub fn fn_ident_from_ptr(&self, shader_file: &LiveFile, fn_node_ptr: FnPtr) -> Ident {
+    pub(crate) fn fn_ident_from_ptr(&self, shader_file: &LiveFile, fn_node_ptr: FnPtr) -> Ident {
         let node = shader_file.ptr_to_node(fn_node_ptr.0);
         Ident(node.id)
     }
 
-    pub fn draw_shader_method_ptr_from_ident(
+    pub(crate) fn draw_shader_method_ptr_from_ident(
         &self,
         draw_shader_def: &DrawShaderDef,
         ident: Ident,
@@ -63,7 +63,7 @@ impl Shader {
         None
     }
 
-    pub fn struct_method_ptr_from_ident(
+    pub(crate) fn struct_method_ptr_from_ident(
         &self,
         struct_def: &StructDef,
         ident: Ident,
@@ -77,7 +77,7 @@ impl Shader {
         None
     }
 
-    pub fn draw_shader_method_decl_from_ident(
+    pub(crate) fn draw_shader_method_decl_from_ident(
         &self,
         draw_shader_def: &DrawShaderDef,
         ident: Ident,
@@ -91,7 +91,7 @@ impl Shader {
         None
     }
 
-    pub fn struct_method_decl_from_ident(
+    pub(crate) fn struct_method_decl_from_ident(
         &self,
         struct_def: &StructDef,
         ident: Ident,
@@ -105,19 +105,16 @@ impl Shader {
         None
     }
 
-    pub fn find_live_node_by_path(
+    pub(crate) fn find_live_node_by_path(
         shader_file: &LiveFile,
         base_ptr: LivePtr,
         ids: &[LiveId],
     ) -> LiveNodeFindResult {
-        let doc = &shader_file.ptr_to_doc();
-
         let ret = walk_recur(
             shader_file,
             None,
-            base_ptr.generation,
             base_ptr.index as usize,
-            &doc.nodes,
+            &shader_file.expanded.nodes,
             ids,
         );
         return ret;
@@ -125,7 +122,6 @@ impl Shader {
         fn walk_recur(
             shader_file: &LiveFile,
             struct_ptr: Option<LivePtr>,
-            generation: LiveFileGeneration,
             index: usize,
             nodes: &[LiveNode],
             ids: &[LiveId],
@@ -142,7 +138,6 @@ impl Shader {
 
             let now_ptr = LivePtr {
                 index: index as u32,
-                generation,
             };
             //let first_def = node.origin.first_def().unwrap();
             match node.value {
@@ -185,7 +180,7 @@ impl Shader {
                     if shader_file.get_node_prefix(node.origin) == Some(id!(const)) =>
                 {
                     // ok lets eval the expr to get a type
-                    match live_eval(shader_file, index, &mut (index + 1), nodes) {
+                    match live_eval(&shader_file, index, &mut (index + 1), nodes) {
                         Ok(value) => {
                             if let Some(ty) = Ty::from_live_eval(value) {
                                 if let Some(ty_lit) = ty.maybe_ty_lit() {
@@ -202,14 +197,14 @@ impl Shader {
                             });
                         }
                         Err(err) => {
-                            error!("Cannot find node in expression");
+                            panic!("Cannot find node in expression");
                             return LiveNodeFindResult::Error(err);
                         }
                     }
                 }
                 LiveValue::DSL { token_start, .. } => {
                     // lets get the first token
-                    let origin_doc = shader_file.original();
+                    let origin_doc = &shader_file.original;
                     match origin_doc.tokens[token_start as usize].token {
                         LiveToken::Ident(id!(fn)) => {
                             if let Some(struct_ptr) = struct_ptr {
@@ -229,14 +224,7 @@ impl Shader {
                     }
                     match nodes.child_by_name(index, ids[0].as_field()) {
                         Some(child_index) => {
-                            return walk_recur(
-                                shader_file,
-                                None,
-                                generation,
-                                child_index,
-                                nodes,
-                                &ids[1..],
-                            )
+                            return walk_recur(shader_file, None, child_index, nodes, &ids[1..])
                         }
                         None => {
                             return LiveNodeFindResult::NotFound;
@@ -260,7 +248,6 @@ impl Shader {
                             return walk_recur(
                                 shader_file,
                                 struct_ptr,
-                                generation,
                                 child_index,
                                 nodes,
                                 &ids[1..],
@@ -277,14 +264,7 @@ impl Shader {
                     }
                     match nodes.child_by_name(index, ids[0].as_field()) {
                         Some(child_index) => {
-                            return walk_recur(
-                                shader_file,
-                                None,
-                                generation,
-                                child_index,
-                                nodes,
-                                &ids[1..],
-                            )
+                            return walk_recur(shader_file, None, child_index, nodes, &ids[1..])
                         }
                         None => {
                             return LiveNodeFindResult::NotFound;
@@ -299,52 +279,15 @@ impl Shader {
     }
 
     // lets compile the thing
-    pub fn new(shader_file: &LiveFile) -> Result<Shader, LiveError> {
-        let mut draw_shader_def = DrawShaderDef::default();
+    pub fn new(source: &str) -> Result<Shader, LiveError> {
+        let shader_file =
+            makepad_live_compiler::LiveFile::load(source).map_err(|err| LiveError {
+                origin: err.origin,
+                span: err.span.into(),
+                message: err.message.clone(),
+            })?;
 
-        // lets insert the 2D drawshader uniforms
-        // draw_shader_def.add_uniform(
-        //     id_from_str!(camera_projection).unwrap(),
-        //     id_from_str!(pass).unwrap(),
-        //     Ty::Mat4,
-        //     TokenSpan::default(),
-        // );
-        // draw_shader_def.add_uniform(
-        //     id_from_str!(camera_view).unwrap(),
-        //     id_from_str!(pass).unwrap(),
-        //     Ty::Mat4,
-        //     TokenSpan::default(),
-        // );
-        // draw_shader_def.add_uniform(
-        //     id_from_str!(camera_inv).unwrap(),
-        //     id_from_str!(pass).unwrap(),
-        //     Ty::Mat4,
-        //     TokenSpan::default(),
-        // );
-        // draw_shader_def.add_uniform(
-        //     id_from_str!(dpi_factor).unwrap(),
-        //     id_from_str!(pass).unwrap(),
-        //     Ty::Float,
-        //     TokenSpan::default(),
-        // );
-        // draw_shader_def.add_uniform(
-        //     id_from_str!(dpi_dilate).unwrap(),
-        //     id_from_str!(pass).unwrap(),
-        //     Ty::Float,
-        //     TokenSpan::default(),
-        // );
-        // draw_shader_def.add_uniform(
-        //     id_from_str!(view_transform).unwrap(),
-        //     id_from_str!(view).unwrap(),
-        //     Ty::Mat4,
-        //     TokenSpan::default(),
-        // );
-        // draw_shader_def.add_uniform(
-        //     id_from_str!(draw_zbias).unwrap(),
-        //     id_from_str!(draw).unwrap(),
-        //     Ty::Float,
-        //     TokenSpan::default(),
-        // );
+        let mut draw_shader_def = DrawShaderDef::default();
 
         let doc = &shader_file.expanded;
 
@@ -363,7 +306,6 @@ impl Shader {
             let prop = &doc.nodes[node_index];
             let prop_ptr = LivePtr {
                 index: node_index as _,
-                generation: LiveFileGeneration(0),
             };
             if prop.id == id!(debug_id) {
                 node_iter = doc.nodes.next_child(node_index);
@@ -390,7 +332,7 @@ impl Shader {
                     let first_def = prop.origin.first_def().unwrap();
                     let before = shader_file.get_node_prefix(prop.origin);
 
-                    let ty = match ShaderTy::from_live_node(shader_file, node_index, &doc.nodes) {
+                    let ty = match ShaderTy::from_live_node(&shader_file, node_index, &doc.nodes) {
                         Ok(ty) => ty,
                         Err(_) => {
                             // just ignore it
@@ -512,10 +454,10 @@ impl Shader {
                     token_count,
                     expand_index,
                 } => {
-                    let origin_doc = shader_file.original();
+                    let origin_doc = &shader_file.original;
 
                     let parser = ShaderParser::new(
-                        shader_file,
+                        &shader_file,
                         origin_doc.get_tokens(token_start as usize, token_count as usize),
                         &mut parser_deps,
                         Some(FnSelfKind::DrawShader),
@@ -541,33 +483,6 @@ impl Shader {
                                 span: token.span.into(),
                                 message: format!("Unexpected in shader body {}", token),
                             });
-                            /*
-                            let decl = parser.expect_self_decl(Ident(prop.id), prop_ptr) ?;
-                            if let Some(decl) = decl {
-                                // lets see where to inject this.
-                                // if its an instance var it needs to
-                                // go above the var_def_node_ptr one
-                                if let DrawShaderFieldKind::Instance {..} = decl.kind {
-                                    // find from the start the first instancefield
-                                    // without a var_def_node_prt
-                                    if let Some(index) = draw_shader_def.fields.iter().position( | field | {
-                                        if let DrawShaderFieldKind::Instance {var_def_ptr, ..} = field.kind {
-                                            if var_def_ptr.is_none() {
-                                                return true
-                                            }
-                                        }
-                                        false
-                                    }) {
-                                        draw_shader_def.fields.insert(index, decl);
-                                    }
-                                    else {
-                                        draw_shader_def.fields.push(decl);
-                                    }
-                                }
-                                else {
-                                    draw_shader_def.fields.push(decl);
-                                }
-                            }*/
                         }
                     }
                 }
@@ -607,27 +522,70 @@ impl Shader {
         }
 
         assert!(parser_deps.len() == 0);
-        //self.analyse_deps(shader_file, &parser_deps) ?;
+        //self.analyse_deps(&shader_file, &parser_deps) ?;
 
         let mut shader = Shader {
+            shader_file,
             structs: HashMap::new(),
             enums: HashMap::new(),
             all_fns,
             draw_shader_def,
             builtins: generate_builtins(),
         };
+        // ok we have all structs
+        Ok(shader)
+    }
 
+    pub fn compile(&mut self) -> Result<(), LiveError> {
         let mut sa = DrawShaderAnalyser {
-            file: shader_file,
-            shader_registry: &mut shader,
+            file: &self.shader_file,
+            shader_registry: self,
             scopes: &mut Scopes::new(),
             options: ShaderAnalyseOptions {
                 no_const_collapse: true,
             },
         };
-        sa.analyse_shader()?;
+        sa.analyse_shader()
+    }
 
-        // ok we have all structs
-        Ok(shader)
+    pub fn add_attribute(&mut self, attribute_name: &str, ty: ShaderTy) {
+        let id = LiveId::from_str(attribute_name).unwrap();
+        self.draw_shader_def
+            .add_geometry(id, ty, TokenSpan::default());
+    }
+
+    pub fn add_uniform(&mut self, uniform_name: &str, ty: ShaderTy) {
+        let id = LiveId::from_str(uniform_name).unwrap();
+        self.draw_shader_def
+            .add_uniform(id, id_from_str!(pass).unwrap(), ty, TokenSpan::default());
+    }
+
+    pub fn generate_glsl(&self) -> (String, String) {
+        let const_table = DrawShaderConstTable::default();
+
+        let vertex =
+            crate::generate_glsl::generate_vertex_shader(&self.draw_shader_def, &const_table, self);
+        let pixel =
+            crate::generate_glsl::generate_pixel_shader(&self.draw_shader_def, &const_table, self);
+
+        (vertex, pixel)
+    }
+
+    pub fn generate_metal(&self) -> String {
+        let const_table = DrawShaderConstTable::default();
+
+        let shader =
+            crate::generate_metal::generate_shader(&self.draw_shader_def, &const_table, self);
+
+        shader.mtlsl
+    }
+
+    pub fn generate_hlsl(&self) -> String {
+        let const_table = DrawShaderConstTable::default();
+
+        let shader =
+            crate::generate_hlsl::generate_shader(&self.draw_shader_def, &const_table, self);
+
+        shader
     }
 }

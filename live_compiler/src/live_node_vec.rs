@@ -6,10 +6,6 @@ use {
         iter
     },
     crate::{
-        makepad_error_log::*, 
-        makepad_derive_live::{
-            live_object
-        },
         makepad_math::{
             Vec2,
             Vec3,
@@ -643,7 +639,7 @@ impl<T> LiveNodeSlice for T where T: AsRef<[LiveNode]> {
     }
     
     fn debug_print(&self, parent_index: usize, max_depth: usize) {
-        log!("{}", self.to_string(parent_index, max_depth));
+        println!("{}", self.to_string(parent_index, max_depth));
     }
     
     fn to_string(&self, parent_index: usize, max_depth: usize) -> String {
@@ -756,7 +752,7 @@ impl<T> LiveNodeSlice for T where T: AsRef<[LiveNode]> {
                     stack_depth += 1;
                 }, // subnodes including this one
                 LiveValue::Class { ..} => {
-                    writeln!(f, "{}{} <Class> {:?}", node.id, pt, "Class").unwrap();
+                    writeln!(f, "{}{} <Class> {:?}", node.id, pt, "Class?").unwrap();
                     stack_depth += 1;
                 }, // subnodes including this one
                 LiveValue::Close => {
@@ -907,10 +903,11 @@ impl LiveNodeVec for Vec<LiveNode> {
                         return
                     }
                     else { // insert an empty object
-                        self.splice(append_index..append_index, live_object!{
-                            [path[depth].0]: {}
-                        }.iter().cloned());
-                        self[append_index].origin.set_prop_type(path[depth].1);
+                        // self.splice(append_index..append_index, live_object!{
+                        //     [path[depth].0]: {}
+                        // }.iter().cloned());
+                        // self[append_index].origin.set_prop_type(path[depth].1);
+                        unimplemented!()
                     }
                 }
             }
@@ -943,10 +940,11 @@ impl LiveNodeVec for Vec<LiveNode> {
                         return
                     }
                     else { // insert an empty object
-                        self.splice(index..index, live_object!{
-                            [path[depth].0]: {}
-                        }.iter().cloned());
-                        self[index].origin = LiveNodeOrigin::empty().with_prop_type(path[depth].1);
+                        // self.splice(index..index, live_object!{
+                        //     [path[depth].0]: {}
+                        // }.iter().cloned());
+                        // self[index].origin = LiveNodeOrigin::empty().with_prop_type(path[depth].1);
+                        unimplemented!();
                     }
                 }
             }

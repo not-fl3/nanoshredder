@@ -31,7 +31,6 @@ impl LiveExpanded {
     pub fn resolve_ptr(&self, index: usize) -> &LiveNode {
         &self.nodes[index]
     }
-
 }
 
 impl LiveOriginal {
