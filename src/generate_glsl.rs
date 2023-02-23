@@ -80,6 +80,7 @@ impl<'a> DrawShaderGenerator<'a> {
     
     
     fn generate_vertex_shader(&mut self) {
+        write!(self.string, "precision lowp float;");
         let packed_geometries_slots = self.compute_packed_geometries_slots();
         let packed_instances_slots = self.compute_packed_instances_slots();
         let packed_varyings_slots = self.compute_packed_varyings_slots();
@@ -246,6 +247,7 @@ impl<'a> DrawShaderGenerator<'a> {
     }
     
     pub fn generate_pixel_shader(&mut self) {
+        write!(self.string, "precision lowp float;");
         let packed_varyings_slots = self.compute_packed_varyings_slots();
         self.generate_decls(None, None, packed_varyings_slots);
         for field in &self.draw_shader_def.fields {
